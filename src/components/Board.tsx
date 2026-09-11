@@ -119,14 +119,17 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
   const activeColors = state.activeColors;
 
   const tokenRenders = useMemo(() => {
-    // Group tokens by position for stacking
+    // Group tokens by position for stacking (ONLY for track/home-column, NOT base)
     const posGroups = new Map<string, TokenState[]>();
     for (const player of state.players) {
       for (const token of player.tokens) {
         if (token.finished) continue;
-        const key = `${token.color}-${token.pathPosition}`;
-        if (!posGroups.has(key)) posGroups.set(key, []);
-        posGroups.get(key)!.push(token);
+        // Only group tokens on the track (pathPosition >= 0), not in base
+        if (token.pathPosition >= 0) {
+          const key = `${token.color}-${token.pathPosition}`;
+          if (!posGroups.has(key)) posGroups.set(key, []);
+          posGroups.get(key)!.push(token);
+        }
       }
     }
 
@@ -135,25 +138,31 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
       for (const token of player.tokens) {
         if (token.finished) continue;
         let x: number, y: number;
+        let stackCount = 1;
+        let stackIndex = 0;
+
         if (token.pathPosition === -1) {
+          // Base tokens: use FIXED slot positions (token.index determines slot)
+          // NO stacking, NO offsets - each token has its own printed slot
           const pos = getBaseTokenPos(token.color, token.index);
           x = pos.x; y = pos.y;
         } else {
+          // Track/home-column tokens: apply stacking offsets
           const pos = getTokenPixelPos(token.color, token.pathPosition, layout);
           x = pos.x; y = pos.y;
-        }
 
-        const key = `${token.color}-${token.pathPosition}`;
-        const group = posGroups.get(key) || [token];
-        const stackCount = group.length;
-        const stackIndex = group.indexOf(token);
+          const key = `${token.color}-${token.pathPosition}`;
+          const group = posGroups.get(key) || [token];
+          stackCount = group.length;
+          stackIndex = group.indexOf(token);
 
-        // Apply stack offsets
-        if (stackCount > 1) {
-          const offsets = STACK_OFFSETS[Math.min(stackCount, 4)] || STACK_OFFSETS[4];
-          const [dx, dy] = offsets[stackIndex] || [0, 0];
-          x += dx * CELL;
-          y += dy * CELL;
+          // Apply stack offsets ONLY for track tokens
+          if (stackCount > 1) {
+            const offsets = STACK_OFFSETS[Math.min(stackCount, 4)] || STACK_OFFSETS[4];
+            const [dx, dy] = offsets[stackIndex] || [0, 0];
+            x += dx * CELL;
+            y += dy * CELL;
+          }
         }
 
         const isLegal = legalMoves.some(m => m.tokenId === token.id);
@@ -163,16 +172,20 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
     return renders;
   }, [state.players, layout, legalMoves]);
 
-  // Group by position for badge rendering
+  // Group by position for badge rendering (ONLY for track/home-column, NOT base)
   const stackBadges = useMemo(() => {
     const badges: { x: number; y: number; count: number; color: PlayerColor }[] = [];
     const seen = new Set<string>();
 
     for (const { token, x, y, stackCount } of tokenRenders) {
-      const key = `${token.color}-${token.pathPosition}`;
-      if (stackCount >= 2 && !seen.has(key)) {
-        seen.add(key);
-        badges.push({ x, y, count: stackCount, color: token.color });
+      // Only render badges for track/home-column cells (pathPosition >= 0)
+      // NO badges in bases
+      if (token.pathPosition >= 0) {
+        const key = `${token.color}-${token.pathPosition}`;
+        if (stackCount >= 2 && !seen.has(key)) {
+          seen.add(key);
+          badges.push({ x, y, count: stackCount, color: token.color });
+        }
       }
     }
     return badges;
