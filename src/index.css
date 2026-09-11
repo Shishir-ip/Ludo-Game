@@ -138,7 +138,137 @@ body::after {
   50% { left: 100%; }
 }
 
-/* Dice pod - compact rounded square with color ring */
+
+
+/* Token stack badge */
+.token-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid white;
+  animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Game screen layout - pure CSS, no JS sizing */
+#screen-game {
+  height: 100dvh;
+  overflow: hidden;
+  --pod: clamp(56px, 17vw, 84px);
+  --gutter: calc(var(--pod) + 12px);
+  display: grid;
+  grid-template-rows: 48px var(--gutter) 1fr var(--gutter) env(safe-area-inset-bottom);
+  padding-top: env(safe-area-inset-top);
+  position: relative;
+  z-index: 2;
+}
+
+@media (orientation: landscape) {
+  #screen-game {
+    --pod: clamp(48px, 17vh, 72px);
+  }
+}
+
+/* Layout fallback for very small screens */
+#screen-game.layout-fallback .board-zone svg {
+  width: min(94vw, 62dvh);
+  height: auto;
+}
+
+/* Top bar - compact 48px */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  height: 48px;
+}
+
+/* Playfield - contains gutters + board + floating pod */
+.playfield {
+  position: relative;
+  grid-row: 2 / 5;
+  display: grid;
+  grid-template-rows: var(--gutter) 1fr var(--gutter);
+}
+
+/* Gutter rows */
+.gutter {
+  display: grid;
+  grid-template-columns: var(--pod) 1fr var(--pod);
+  align-items: center;
+}
+
+.gutter > .center {
+  justify-self: center;
+}
+
+/* Board zone - maximum size, centered */
+.board-zone {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+
+.board-zone svg {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 1/1;
+  display: block;
+  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4));
+}
+
+/* Dice pod - floating, positioned via CSS classes */
+.dice-pod {
+  position: absolute;
+  width: var(--pod);
+  height: var(--pod);
+  z-index: 20;
+  transition: top 0.45s cubic-bezier(0.3, 0.8, 0.3, 1),
+              left 0.45s cubic-bezier(0.3, 0.8, 0.3, 1);
+}
+
+.dice-pod.pos-tl {
+  top: 0;
+  left: 0;
+}
+
+.dice-pod.pos-tr {
+  top: 0;
+  left: 100%;
+  translate: -100% 0;
+}
+
+.dice-pod.pos-bl {
+  top: 100%;
+  left: 0;
+  translate: 0 -100%;
+}
+
+.dice-pod.pos-br {
+  top: 100%;
+  left: 100%;
+  translate: -100% -100%;
+}
+
+/* Dice pod container */
 .dice-pod-container {
   position: relative;
   display: flex;
@@ -152,8 +282,8 @@ body::after {
   -webkit-backdrop-filter: blur(10px);
   border: 2px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  width: var(--pod, 72px);
-  height: var(--pod, 72px);
+  width: 100%;
+  height: 100%;
   justify-content: center;
 }
 
@@ -188,90 +318,6 @@ body::after {
   height: 78%;
   min-width: 0;
   min-height: 0;
-}
-
-/* Token stack badge */
-.token-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  border: 2px solid white;
-  animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes badgePop {
-  0% { transform: scale(0); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
-/* Game screen layout - new grid with gutters */
-#screen-game {
-  height: 100dvh;
-  overflow: hidden;
-  display: grid;
-  grid-template-rows: 48px auto 1fr auto auto;
-  padding: env(safe-area-inset-top) 8px env(safe-area-inset-bottom);
-  position: relative;
-  z-index: 2;
-}
-
-/* Top bar - compact 48px */
-.top-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  height: 48px;
-}
-
-/* Gutter rows - contain pod slots and center content */
-.gutter {
-  height: calc(var(--pod, 72px) + 12px);
-  display: grid;
-  grid-template-columns: var(--pod, 72px) 1fr var(--pod, 72px);
-  align-items: center;
-  padding: 0 4px;
-}
-
-.gutter > .pod-slot-l {
-  justify-self: start;
-}
-
-.gutter > .pod-slot-r {
-  justify-self: end;
-}
-
-.gutter > .center {
-  justify-self: center;
-}
-
-/* Board zone - maximum size, centered */
-.board-zone {
-  min-height: 0;
-  display: grid;
-  place-items: center;
-  position: relative;
-}
-
-.board-zone svg {
-  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4));
-}
-
-/* Bottom safe area padding */
-.safe-pad {
-  height: env(safe-area-inset-bottom);
 }
 
 /* Dice dock - always visible, above board */
