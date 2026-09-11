@@ -22,13 +22,14 @@ export function prefersReducedMotion(): boolean {
 
 /**
  * Hop token along a path of points (cell centers).
- * Each hop = arc lift + landing squash.
+ * Each hop = arc lift + landing squash + per-step sound.
  */
 export async function hopPath(
   tokenEl: SVGElement,
   points: { x: number; y: number; cellSize?: number }[],
   msPerHop: number = 150,
-  speedMult: number = 1.0
+  speedMult: number = 1.0,
+  onStep?: (stepIndex: number) => void
 ): Promise<void> {
   if (prefersReducedMotion() || points.length < 2) {
     // Instant move
@@ -56,6 +57,11 @@ export async function hopPath(
       easing: 'cubic-bezier(.3,.7,.4,1)',
       fill: 'forwards'
     });
+
+    // Play step sound at landing (85% through animation)
+    if (onStep) {
+      setTimeout(() => onStep(i - 1), dur * 0.85);
+    }
 
     await anim.finished;
   }

@@ -44,7 +44,7 @@ const Menu: React.FC<MenuProps> = ({ onPlay, onResume, onSettings, onStats }) =>
   const hasSave = hasSavedGame();
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden screen-enter">
+    <div className="screen flex flex-col items-center justify-center relative overflow-hidden screen-enter">
       {/* Floating background shapes */}
       <div className="floating-shape" style={{ top: '10%', left: '15%', animationDelay: '0s' }}>
         <div className="w-16 h-16 rounded-full bg-red-500" />
@@ -67,7 +67,7 @@ const Menu: React.FC<MenuProps> = ({ onPlay, onResume, onSettings, onStats }) =>
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 shadow-lg" />
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 shadow-lg" />
         </div>
-        <h1 className="text-5xl font-black text-white title-shine tracking-tight mb-2">
+        <h1 className="menu-title text-6xl font-black tracking-tight mb-2">
           LUDO
         </h1>
         <p className="text-white/60 text-sm font-medium">Pass & Play • Offline Ready</p>
@@ -99,7 +99,14 @@ const Menu: React.FC<MenuProps> = ({ onPlay, onResume, onSettings, onStats }) =>
         </button>
         <button
           onClick={onSettings}
-          className="btn-secondary w-full py-4 px-6 text-gray-800 rounded-2xl font-bold text-lg"
+          className="w-full py-4 px-6 rounded-2xl font-bold text-lg text-white transition-all active:scale-95"
+          style={{
+            background: 'rgba(255,255,255,0.08)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
+          }}
         >
           <span className="flex items-center justify-center gap-2">
             <SettingsIcon />
@@ -108,7 +115,14 @@ const Menu: React.FC<MenuProps> = ({ onPlay, onResume, onSettings, onStats }) =>
         </button>
         <button
           onClick={onStats}
-          className="btn-secondary w-full py-4 px-6 text-gray-800 rounded-2xl font-bold text-lg"
+          className="w-full py-4 px-6 rounded-2xl font-bold text-lg text-white transition-all active:scale-95"
+          style={{
+            background: 'rgba(255,255,255,0.08)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
+          }}
         >
           <span className="flex items-center justify-center gap-2">
             <TrophyIcon />

@@ -1,5 +1,6 @@
 /**
- * Setup screen - choose player count, assign names and colors. Rich visual design.
+ * Setup screen - choose player count, assign names and colors.
+ * Sticky CTA, labels inside cards, no clipping.
  */
 
 import React, { useState } from 'react';
@@ -37,10 +38,10 @@ const Setup: React.FC<SetupProps> = ({ onStart, onBack }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-6 screen-enter overflow-y-auto" style={{ maxHeight: '100dvh' }}>
+    <div className="screen screen-enter">
       <button
         onClick={onBack}
-        className="self-start mb-4 text-white/70 hover:text-white flex items-center gap-2 text-base font-medium transition-colors"
+        className="mb-4 text-white/70 hover:text-white flex items-center gap-2 text-base font-medium transition-colors"
       >
         <BackIcon /> Back
       </button>
@@ -49,7 +50,7 @@ const Setup: React.FC<SetupProps> = ({ onStart, onBack }) => {
 
       {/* Mode selector - segmented control */}
       <div className="segmented-control flex gap-1 mb-8 p-1.5 rounded-2xl w-fit relative">
-        {([2, 3, 4, 6] as GameMode[]).map((m, idx) => (
+        {([2, 3, 4, 6] as GameMode[]).map(m => (
           <button
             key={m}
             onClick={() => setMode(m)}
@@ -59,10 +60,7 @@ const Setup: React.FC<SetupProps> = ({ onStart, onBack }) => {
             `}
           >
             {mode === m && (
-              <div
-                className="segment-thumb absolute inset-0 rounded-xl"
-                style={{ transitionDelay: '0ms' }}
-              />
+              <div className="segment-thumb absolute inset-0 rounded-xl" />
             )}
             <span className="relative z-10">{m}P</span>
           </button>
@@ -70,37 +68,60 @@ const Setup: React.FC<SetupProps> = ({ onStart, onBack }) => {
       </div>
 
       {/* Player setup */}
-      <div className="w-full max-w-sm space-y-3 mb-8">
+      <div className="w-full max-w-sm space-y-3 mb-4">
         {activeColors.map((color, i) => (
-          <div key={color} className="settings-card flex items-center gap-3 rounded-2xl p-4">
+          <div
+            key={color}
+            className="settings-card flex items-center gap-3 rounded-2xl p-4 overflow-hidden"
+          >
+            {/* Gradient number chip with color ring */}
             <div
-              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-lg"
-              style={{ background: `linear-gradient(135deg, ${COLOR_HEX[color]} 0%, ${COLOR_HEX[color]}cc 100%)` }}
+              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-lg relative"
+              style={{
+                background: `linear-gradient(135deg, ${COLOR_HEX[color]} 0%, ${COLOR_HEX[color]}cc 100%)`,
+                boxShadow: `0 0 0 3px ${COLOR_HEX[color]}40, 0 4px 12px ${COLOR_HEX[color]}60`
+              }}
             >
               {i + 1}
             </div>
+            {/* Name input - glows in player color on focus */}
             <input
               type="text"
               placeholder={`Player ${i + 1}`}
               value={names[color]}
               onChange={e => setNames(prev => ({ ...prev, [color]: e.target.value }))}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+              className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-transparent font-medium transition-shadow"
+              style={{
+                boxShadow: 'none'
+              }}
+              onFocus={e => {
+                e.target.style.boxShadow = `0 0 0 2px ${COLOR_HEX[color]}80`;
+              }}
+              onBlur={e => {
+                e.target.style.boxShadow = 'none';
+              }}
               maxLength={15}
             />
-            <span className="text-sm font-bold capitalize" style={{ color: COLOR_HEX[color] }}>
+            {/* Color label - inside card, right-aligned */}
+            <span
+              className="text-xs font-bold uppercase tracking-wide shrink-0"
+              style={{ color: COLOR_HEX[color] }}
+            >
               {color}
             </span>
           </div>
         ))}
       </div>
 
-      {/* Start button */}
-      <button
-        onClick={handleStart}
-        className="btn-primary w-full max-w-sm py-4 px-6 text-white rounded-2xl font-bold text-lg relative overflow-hidden"
-      >
-        <span className="relative z-10">Start Game →</span>
-      </button>
+      {/* Sticky CTA - always reachable */}
+      <div className="sticky-cta">
+        <button
+          onClick={handleStart}
+          className="btn-primary w-full py-4 px-6 text-white rounded-xl font-bold text-lg relative overflow-hidden"
+        >
+          <span className="relative z-10">Start Game →</span>
+        </button>
+      </div>
     </div>
   );
 };

@@ -2,6 +2,7 @@
  * SVG Board renderer - saturated vibrant colors matching reference image.
  * 3D tokens with radial gradients, specular highlights, and shadows.
  * Rich colored bases with white inner panels.
+ * Stack badges for multiple tokens on same cell.
  */
 
 import React, { useMemo } from 'react';
@@ -64,6 +65,14 @@ const SATURATED: Record<PlayerColor, { main: string; dark: string; light: string
   orange: { main: '#F97316', dark: '#C2410C', light: '#FDBA74' },
 };
 
+// Stack offsets for multiple tokens on same cell
+const STACK_OFFSETS: Record<number, [number, number][]> = {
+  1: [[0, 0]],
+  2: [[-0.16, -0.16], [0.16, 0.16]],
+  3: [[-0.18, -0.14], [0.18, -0.14], [0, 0.18]],
+  4: [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]],
+};
+
 function getAbsLoopIndex(color: PlayerColor, relativePos: number): number {
   return (START_OFFSETS[color] + relativePos) % 52;
 }
@@ -100,12 +109,6 @@ function getBaseTokenPos(color: PlayerColor, tokenIndex: number): { x: number; y
   return { x: cx + offsets[tokenIndex].dx, y: cy + offsets[tokenIndex].dy };
 }
 
-function getStackOffset(stackIndex: number, stackSize: number): { dx: number; dy: number } {
-  if (stackSize <= 1) return { dx: 0, dy: 0 };
-  const offsets = [{ dx: -6, dy: -6 }, { dx: 6, dy: -6 }, { dx: -6, dy: 6 }, { dx: 6, dy: 6 }];
-  return offsets[stackIndex % 4];
-}
-
 // Expose cellCenter for animation system
 export function cellCenter(color: PlayerColor, pathPos: number, layout: BoardLayout): { x: number; y: number } {
   return getTokenPixelPos(color, pathPos, layout);
@@ -115,21 +118,19 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
   const layout = state.layout;
   const activeColors = state.activeColors;
 
-  const posGroups = useMemo(() => {
-    const groups = new Map<string, TokenState[]>();
+  const tokenRenders = useMemo(() => {
+    // Group tokens by position for stacking
+    const posGroups = new Map<string, TokenState[]>();
     for (const player of state.players) {
       for (const token of player.tokens) {
         if (token.finished) continue;
         const key = `${token.color}-${token.pathPosition}`;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(token);
+        if (!posGroups.has(key)) posGroups.set(key, []);
+        posGroups.get(key)!.push(token);
       }
     }
-    return groups;
-  }, [state.players]);
 
-  const tokenRenders = useMemo(() => {
-    const renders: { token: TokenState; x: number; y: number; isLegal: boolean }[] = [];
+    const renders: { token: TokenState; x: number; y: number; isLegal: boolean; stackCount: number; stackIndex: number }[] = [];
     for (const player of state.players) {
       for (const token of player.tokens) {
         if (token.finished) continue;
@@ -141,17 +142,41 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
           const pos = getTokenPixelPos(token.color, token.pathPosition, layout);
           x = pos.x; y = pos.y;
         }
+
         const key = `${token.color}-${token.pathPosition}`;
         const group = posGroups.get(key) || [token];
+        const stackCount = group.length;
         const stackIndex = group.indexOf(token);
-        const offset = getStackOffset(stackIndex, group.length);
-        x += offset.dx; y += offset.dy;
+
+        // Apply stack offsets
+        if (stackCount > 1) {
+          const offsets = STACK_OFFSETS[Math.min(stackCount, 4)] || STACK_OFFSETS[4];
+          const [dx, dy] = offsets[stackIndex] || [0, 0];
+          x += dx * CELL;
+          y += dy * CELL;
+        }
+
         const isLegal = legalMoves.some(m => m.tokenId === token.id);
-        renders.push({ token, x, y, isLegal });
+        renders.push({ token, x, y, isLegal, stackCount, stackIndex });
       }
     }
     return renders;
-  }, [state.players, layout, legalMoves, posGroups]);
+  }, [state.players, layout, legalMoves]);
+
+  // Group by position for badge rendering
+  const stackBadges = useMemo(() => {
+    const badges: { x: number; y: number; count: number; color: PlayerColor }[] = [];
+    const seen = new Set<string>();
+
+    for (const { token, x, y, stackCount } of tokenRenders) {
+      const key = `${token.color}-${token.pathPosition}`;
+      if (stackCount >= 2 && !seen.has(key)) {
+        seen.add(key);
+        badges.push({ x, y, count: stackCount, color: token.color });
+      }
+    }
+    return badges;
+  }, [tokenRenders]);
 
   return (
     <svg
@@ -290,11 +315,19 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
           <ellipse cx={-3} cy={-3} rx={4} ry={3} fill="white" opacity="0.5" />
           {/* Inner dot */}
           <circle r={3} fill="white" opacity="0.7" />
-          {/* Gentle bounce for legal tokens */}
+          {/* Gentle bob for legal tokens */}
           {isLegal && (
             <animateTransform attributeName="transform" type="translate" values={`${x},${y};${x},${y - 2};${x},${y}`}
               dur="1s" repeatCount="indefinite" additive="replace" />
           )}
+        </g>
+      ))}
+
+      {/* Stack badges */}
+      {stackBadges.map(({ x, y, count, color }, i) => (
+        <g key={`badge-${i}`} transform={`translate(${x + 12}, ${y - 12})`}>
+          <circle r={9} fill="rgba(0,0,0,0.8)" stroke="white" strokeWidth="2" />
+          <text textAnchor="middle" dy="4" fontSize="11" fontWeight="bold" fill="white">{count}</text>
         </g>
       ))}
     </svg>
