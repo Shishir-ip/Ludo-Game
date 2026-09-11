@@ -138,33 +138,29 @@ body::after {
   50% { left: 100%; }
 }
 
-/* Dice pod - floating dice that moves to current player */
-.dice-pod {
-  position: absolute;
-  z-index: 20;
-  transition: left 0.45s cubic-bezier(0.3, 0.8, 0.3, 1),
-              top 0.45s cubic-bezier(0.3, 0.8, 0.3, 1);
+/* Dice pod - compact rounded square with color ring */
+.dice-pod-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-}
-
-.dice-pod-container {
-  position: relative;
-  padding: 8px;
-  border-radius: 20px;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 16px;
   background: rgba(15, 23, 42, 0.7);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 2px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  width: var(--pod, 72px);
+  height: var(--pod, 72px);
+  justify-content: center;
 }
 
 .dice-pod-ring {
   position: absolute;
-  inset: -4px;
-  border-radius: 24px;
+  inset: -3px;
+  border-radius: 19px;
   border: 3px solid transparent;
   pointer-events: none;
   animation: podPulse 2s ease-in-out infinite;
@@ -176,13 +172,22 @@ body::after {
 }
 
 .dice-pod-name {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: white;
   background: rgba(0, 0, 0, 0.5);
-  padding: 2px 8px;
-  border-radius: 8px;
+  padding: 1px 6px;
+  border-radius: 6px;
   white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* Dice inside pod - 78% of pod size */
+.dice-pod-container .dice {
+  width: 78%;
+  height: 78%;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* Token stack badge */
@@ -211,40 +216,62 @@ body::after {
   100% { transform: scale(1); }
 }
 
-/* Game screen layout - CRITICAL: no scroll, dice always visible */
+/* Game screen layout - new grid with gutters */
 #screen-game {
   height: 100dvh;
   overflow: hidden;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right)
-           env(safe-area-inset-bottom) env(safe-area-inset-left);
+  grid-template-rows: 48px auto 1fr auto auto;
+  padding: env(safe-area-inset-top) 8px env(safe-area-inset-bottom);
   position: relative;
   z-index: 2;
 }
 
-/* Board wrapper - centers and scales board with ring margin for dice pod */
-.board-wrap {
+/* Top bar - compact 48px */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  height: 48px;
+}
+
+/* Gutter rows - contain pod slots and center content */
+.gutter {
+  height: calc(var(--pod, 72px) + 12px);
+  display: grid;
+  grid-template-columns: var(--pod, 72px) 1fr var(--pod, 72px);
+  align-items: center;
+  padding: 0 4px;
+}
+
+.gutter > .pod-slot-l {
+  justify-self: start;
+}
+
+.gutter > .pod-slot-r {
+  justify-self: end;
+}
+
+.gutter > .center {
+  justify-self: center;
+}
+
+/* Board zone - maximum size, centered */
+.board-zone {
   min-height: 0;
   display: grid;
   place-items: center;
-  /* Ring margin: reserves space around board for dice pod */
-  padding: clamp(56px, 11vw, 88px);
   position: relative;
 }
 
-.board-wrap svg {
-  height: 100%;
-  max-width: 100%;
-  aspect-ratio: 1/1;
+.board-zone svg {
   filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4));
 }
 
-/* On very short viewports, compress ring to minimum */
-@media (max-height: 600px) {
-  .board-wrap {
-    padding: 56px;
-  }
+/* Bottom safe area padding */
+.safe-pad {
+  height: env(safe-area-inset-bottom);
 }
 
 /* Dice dock - always visible, above board */

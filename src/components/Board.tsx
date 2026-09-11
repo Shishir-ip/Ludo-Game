@@ -247,12 +247,13 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
             <rect x={pos.x + 4} y={pos.y + 4} width={6 * CELL - 8} height={6 * CELL - 8} rx="16" fill={sat.main} />
             {/* White inner panel */}
             <rect x={pos.x + CELL * 0.8} y={pos.y + CELL * 0.8} width={6 * CELL - CELL * 1.6} height={6 * CELL - CELL * 1.6} rx="12" fill="white" />
-            {/* Token slots */}
+            {/* Token slots - scaled to 1.2 × token */}
             {[0, 1, 2, 3].map(i => {
               const slotPos = getBaseTokenPos(color as PlayerColor, i);
+              const SLOT_R = CELL * 0.48; // 1.2 × token radius (0.40 × 1.2 = 0.48)
               return (
-                <circle key={`slot-${color}-${i}`} cx={slotPos.x} cy={slotPos.y} r={14}
-                  fill={sat.main} opacity="0.25" stroke={sat.main} strokeWidth="2" />
+                <circle key={`slot-${color}-${i}`} cx={slotPos.x} cy={slotPos.y} r={SLOT_R}
+                  fill={sat.main} opacity="0.25" stroke={sat.main} strokeWidth="2.5" />
               );
             })}
           </g>
@@ -285,13 +286,13 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
       {/* Center pinwheel - saturated */}
       {renderCenter(activeColors)}
 
-      {/* Safe cell golden stars */}
+      {/* Safe cell golden stars - scaled to 0.55 × cell */}
       {getSafeCellPositions(activeColors, layout).map(({ x, y, key }) => (
-        <text key={`star-${key}`} x={x} y={y + 6} textAnchor="middle" fontSize="18"
+        <text key={`star-${key}`} x={x} y={y + 8} textAnchor="middle" fontSize={CELL * 0.55}
           fill="#F59E0B" filter="url(#starGlow)" fontWeight="bold">★</text>
       ))}
 
-      {/* Entry arrows - colored chevrons */}
+      {/* Entry arrows - scaled to 0.45 × cell */}
       {activeColors.map(color => {
         const entryIdx = (START_OFFSETS[color] - 1 + 52) % 52;
         const cell = TRACK[entryIdx];
@@ -299,7 +300,7 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
         const pos = getCellCenter(cell[0], cell[1]);
         return (
           <g key={`arrow-${color}`}>
-            <text x={pos.x} y={pos.y + 5} textAnchor="middle" fontSize="14"
+            <text x={pos.x} y={pos.y + 6} textAnchor="middle" fontSize={CELL * 0.45}
               fill={SATURATED[color].main} fontWeight="bold" opacity="0.8">
               ▶
               <animate attributeName="opacity" values="0.8;0.4;0.8" dur="2s" repeatCount="indefinite" />
@@ -308,41 +309,48 @@ const Board: React.FC<BoardProps> = ({ state, legalMoves, onTokenClick }) => {
         );
       })}
 
-      {/* 3D Tokens */}
-      {tokenRenders.map(({ token, x, y, isLegal }) => (
-        <g key={token.id} data-token-id={token.id} transform={`translate(${x}, ${y})`}
-          onClick={() => isLegal && onTokenClick(token.id)}
-          style={{ cursor: isLegal ? 'pointer' : 'default' }}>
-          {/* Pulsing halo for legal moves */}
-          {isLegal && (
-            <circle r={20} fill="none" stroke={SATURATED[token.color].main} strokeWidth="2.5" opacity="0.6">
-              <animate attributeName="r" values="18;23;18" dur="1.2s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.6;0.15;0.6" dur="1.2s" repeatCount="indefinite" />
-            </circle>
-          )}
-          {/* Shadow ellipse */}
-          <ellipse cx={1} cy={5} rx={10} ry={4} fill="rgba(0,0,0,0.2)" />
-          {/* Token body with radial gradient */}
-          <circle r={isLegal ? 13 : 11} fill={`url(#tokenGrad-${token.color})`} stroke="white" strokeWidth="2.5" />
-          {/* Specular highlight */}
-          <ellipse cx={-3} cy={-3} rx={4} ry={3} fill="white" opacity="0.5" />
-          {/* Inner dot */}
-          <circle r={3} fill="white" opacity="0.7" />
-          {/* Gentle bob for legal tokens */}
-          {isLegal && (
-            <animateTransform attributeName="transform" type="translate" values={`${x},${y};${x},${y - 2};${x},${y}`}
-              dur="1s" repeatCount="indefinite" additive="replace" />
-          )}
-        </g>
-      ))}
+      {/* 3D Tokens - scaled to 0.80 × cell */}
+      {tokenRenders.map(({ token, x, y, isLegal }) => {
+        const TOKEN_R = CELL * 0.40; // 0.80 diameter = 0.40 radius
+        return (
+          <g key={token.id} data-token-id={token.id} transform={`translate(${x}, ${y})`}
+            onClick={() => isLegal && onTokenClick(token.id)}
+            style={{ cursor: isLegal ? 'pointer' : 'default' }}>
+            {/* Pulsing halo for legal moves */}
+            {isLegal && (
+              <circle r={TOKEN_R * 1.5} fill="none" stroke={SATURATED[token.color].main} strokeWidth="3" opacity="0.6">
+                <animate attributeName="r" values={`${TOKEN_R * 1.4};${TOKEN_R * 1.7};${TOKEN_R * 1.4}`} dur="1.2s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.6;0.15;0.6" dur="1.2s" repeatCount="indefinite" />
+              </circle>
+            )}
+            {/* Shadow ellipse */}
+            <ellipse cx={1} cy={6} rx={TOKEN_R * 0.9} ry={TOKEN_R * 0.35} fill="rgba(0,0,0,0.2)" />
+            {/* Token body with radial gradient */}
+            <circle r={TOKEN_R} fill={`url(#tokenGrad-${token.color})`} stroke="white" strokeWidth="3" />
+            {/* Specular highlight */}
+            <ellipse cx={-TOKEN_R * 0.25} cy={-TOKEN_R * 0.25} rx={TOKEN_R * 0.35} ry={TOKEN_R * 0.25} fill="white" opacity="0.5" />
+            {/* Inner dot */}
+            <circle r={TOKEN_R * 0.25} fill="white" opacity="0.7" />
+            {/* Gentle bob for legal tokens */}
+            {isLegal && (
+              <animateTransform attributeName="transform" type="translate" values={`${x},${y};${x},${y - 2};${x},${y}`}
+                dur="1s" repeatCount="indefinite" additive="replace" />
+            )}
+          </g>
+        );
+      })}
 
-      {/* Stack badges */}
-      {stackBadges.map(({ x, y, count, color }, i) => (
-        <g key={`badge-${i}`} transform={`translate(${x + 12}, ${y - 12})`}>
-          <circle r={9} fill="rgba(0,0,0,0.8)" stroke="white" strokeWidth="2" />
-          <text textAnchor="middle" dy="4" fontSize="11" fontWeight="bold" fill="white">{count}</text>
-        </g>
-      ))}
+      {/* Stack badges - scaled with cell */}
+      {stackBadges.map(({ x, y, count, color }, i) => {
+        const BADGE_R = CELL * 0.28;
+        const BADGE_FONT = CELL * 0.32;
+        return (
+          <g key={`badge-${i}`} transform={`translate(${x + CELL * 0.3}, ${y - CELL * 0.3})`}>
+            <circle r={BADGE_R} fill="rgba(0,0,0,0.8)" stroke="white" strokeWidth="2" />
+            <text textAnchor="middle" dy={BADGE_FONT * 0.35} fontSize={BADGE_FONT} fontWeight="bold" fill="white">{count}</text>
+          </g>
+        );
+      })}
     </svg>
   );
 };
