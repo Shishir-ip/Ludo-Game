@@ -1,8 +1,8 @@
 /**
- * Game Over screen - shows winner, rankings, and options.
+ * Game Over screen - confetti rain, bouncing trophy, staggered rank cards.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { PlayerColor, COLOR_HEX } from '../config/constants';
 
 interface GameOverProps {
@@ -14,36 +14,84 @@ interface GameOverProps {
   onMenu: () => void;
 }
 
+const TrophyIcon = () => (
+  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400">
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+    <path d="M4 22h16" />
+    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+  </svg>
+);
+
 const GameOver: React.FC<GameOverProps> = ({ winner, rankings, playerNames, onRematch, onNewGame, onMenu }) => {
+  // Confetti rain effect
+  useEffect(() => {
+    const colors = ['#E23A3A', '#16A34A', '#EAB308', '#2563EB', '#8B5CF6', '#F97316'];
+    const confetti: HTMLDivElement[] = [];
+
+    for (let i = 0; i < 50; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti';
+      el.style.left = `${Math.random() * 100}%`;
+      el.style.background = colors[Math.floor(Math.random() * colors.length)];
+      el.style.animationDelay = `${Math.random() * 2}s`;
+      el.style.animationDuration = `${2 + Math.random() * 2}s`;
+      el.style.width = `${6 + Math.random() * 8}px`;
+      el.style.height = `${6 + Math.random() * 8}px`;
+      el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      document.body.appendChild(el);
+      confetti.push(el);
+    }
+
+    return () => {
+      confetti.forEach(el => el.remove());
+    };
+  }, []);
+
+  const getMedal = (index: number) => {
+    if (index === 0) return '🥇';
+    if (index === 1) return '🥈';
+    if (index === 2) return '🥉';
+    return `#${index + 1}`;
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F6F4EF]">
-      {/* Crown */}
-      <div className="text-6xl mb-4">👑</div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden screen-enter">
+      {/* Trophy */}
+      <div className="trophy-bounce mb-6">
+        <TrophyIcon />
+      </div>
 
       {/* Winner */}
-      <div className="text-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">
-          <span style={{ color: COLOR_HEX[winner] }} className="capitalize">{playerNames[winner] || winner}</span>
-          {' '}Wins!
+      <div className="text-center mb-8">
+        <h2 className="text-4xl font-black text-white mb-2">
+          <span style={{ color: COLOR_HEX[winner] }} className="capitalize">
+            {playerNames[winner] || winner}
+          </span>
         </h2>
-        <p className="text-gray-500">Congratulations!</p>
+        <p className="text-2xl font-bold text-yellow-400">Wins!</p>
       </div>
 
       {/* Rankings */}
       {rankings.length > 1 && (
         <div className="w-full max-w-xs mb-8">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Rankings</h3>
-          <div className="space-y-2">
+          <h3 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-4">Rankings</h3>
+          <div className="space-y-3">
             {rankings.map((color, i) => (
-              <div key={color} className="flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm">
-                <span className="text-lg font-bold text-gray-400 w-8">
-                  {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
+              <div
+                key={color}
+                className="rank-card settings-card flex items-center gap-4 rounded-2xl p-4"
+                style={{ animationDelay: `${i * 0.1}s` }}
+              >
+                <span className="text-2xl font-bold w-10 text-center">
+                  {getMedal(i)}
                 </span>
                 <div
-                  className="w-6 h-6 rounded-full"
-                  style={{ backgroundColor: COLOR_HEX[color] }}
+                  className="w-8 h-8 rounded-full shadow-lg"
+                  style={{ background: `linear-gradient(135deg, ${COLOR_HEX[color]} 0%, ${COLOR_HEX[color]}cc 100%)` }}
                 />
-                <span className="font-medium text-gray-700 capitalize">
+                <span className="font-bold text-white capitalize flex-1">
                   {playerNames[color] || color}
                 </span>
               </div>
@@ -56,21 +104,22 @@ const GameOver: React.FC<GameOverProps> = ({ winner, rankings, playerNames, onRe
       <div className="w-full max-w-xs space-y-3">
         <button
           onClick={onRematch}
-          className="w-full py-4 px-6 bg-green-600 text-white rounded-2xl font-semibold text-lg shadow-md hover:bg-green-700 active:scale-95 transition-all"
+          className="btn-primary w-full py-4 px-6 text-white rounded-2xl font-bold text-lg relative overflow-hidden"
         >
-          🔄 Rematch
+          <span className="relative z-10">🔄 Rematch</span>
         </button>
         <button
           onClick={onNewGame}
-          className="w-full py-4 px-6 bg-[#34A8E8] text-white rounded-2xl font-semibold text-lg shadow-md hover:bg-blue-500 active:scale-95 transition-all"
+          className="btn-primary w-full py-4 px-6 text-white rounded-2xl font-bold text-lg relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)' }}
         >
-          🎲 New Game
+          <span className="relative z-10">🎲 New Game</span>
         </button>
         <button
           onClick={onMenu}
-          className="w-full py-4 px-6 bg-white text-gray-700 rounded-2xl font-semibold text-lg shadow-md border border-gray-200 hover:bg-gray-50 active:scale-95 transition-all"
+          className="btn-secondary w-full py-4 px-6 text-gray-800 rounded-2xl font-bold text-lg"
         >
-          🏠 Main Menu
+          <span className="relative z-10">🏠 Main Menu</span>
         </button>
       </div>
     </div>

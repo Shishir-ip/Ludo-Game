@@ -1,9 +1,9 @@
 /**
- * Settings screen - game rules, audio, display preferences.
+ * Settings screen - gradient cards, springy toggles, segmented control.
  */
 
 import React from 'react';
-import { GameSettings, DEFAULT_SETTINGS } from '../config/constants';
+import { GameSettings } from '../config/constants';
 import { loadStats, resetStats } from '../services/storage';
 
 interface SettingsProps {
@@ -11,6 +11,12 @@ interface SettingsProps {
   onChange: (settings: GameSettings) => void;
   onBack: () => void;
 }
+
+const BackIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 12H5M12 19l-7-7 7-7" />
+  </svg>
+);
 
 const Settings: React.FC<SettingsProps> = ({ settings, onChange, onBack }) => {
   const stats = loadStats();
@@ -30,15 +36,15 @@ const Settings: React.FC<SettingsProps> = ({ settings, onChange, onBack }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-6 bg-[#F6F4EF]">
+    <div className="min-h-screen flex flex-col p-6 screen-enter overflow-y-auto" style={{ maxHeight: '100dvh' }}>
       <button
         onClick={onBack}
-        className="self-start mb-4 text-gray-500 hover:text-gray-700 text-lg"
+        className="self-start mb-4 text-white/70 hover:text-white flex items-center gap-2 text-base font-medium transition-colors"
       >
-        ← Back
+        <BackIcon /> Back
       </button>
 
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Settings</h2>
+      <h2 className="text-3xl font-black text-white mb-6">Settings</h2>
 
       <div className="w-full max-w-sm space-y-4">
         {/* Sound */}
@@ -48,21 +54,22 @@ const Settings: React.FC<SettingsProps> = ({ settings, onChange, onBack }) => {
           onChange={() => toggle('soundEnabled')}
         />
 
-        {/* Animation speed */}
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <label className="text-sm font-medium text-gray-600 block mb-2">Animation Speed</label>
-          <div className="flex gap-2">
+        {/* Animation speed - segmented control */}
+        <div className="settings-card rounded-2xl p-4">
+          <label className="text-sm font-bold text-white/80 block mb-3">Animation Speed</label>
+          <div className="segmented-control flex gap-1 p-1 rounded-xl relative">
             {(['slow', 'normal', 'fast'] as const).map(speed => (
               <button
                 key={speed}
                 onClick={() => onChange({ ...settings, animationSpeed: speed })}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                  settings.animationSpeed === speed
-                    ? 'bg-[#34A8E8] text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all relative z-10 ${
+                  settings.animationSpeed === speed ? 'text-white' : 'text-white/60 hover:text-white/80'
                 }`}
               >
-                {speed}
+                {settings.animationSpeed === speed && (
+                  <div className="segment-thumb absolute inset-0 rounded-lg" />
+                )}
+                <span className="relative z-10 capitalize">{speed}</span>
               </button>
             ))}
           </div>
@@ -70,13 +77,13 @@ const Settings: React.FC<SettingsProps> = ({ settings, onChange, onBack }) => {
 
         {/* Rules */}
         <ToggleRow
-          label="🎯 Auto-move if only one legal move"
+          label="🎯 Auto-move single option"
           checked={settings.autoMoveSingle}
           onChange={() => toggle('autoMoveSingle')}
         />
 
         <ToggleRow
-          label="⚡ Three 6s = forfeit turn"
+          label="⚡ Three 6s = forfeit"
           checked={settings.threeSixesAbort}
           onChange={() => toggle('threeSixesAbort')}
         />
@@ -88,27 +95,33 @@ const Settings: React.FC<SettingsProps> = ({ settings, onChange, onBack }) => {
         />
 
         <ToggleRow
-          label="📱 Pass device interstitial"
+          label="📱 Pass device prompt"
           checked={settings.passDevice}
           onChange={() => toggle('passDevice')}
         />
 
         {/* Stats */}
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">Statistics</h3>
-          <p className="text-gray-700">Games played: <strong>{stats.gamesPlayed}</strong></p>
+        <div className="settings-card rounded-2xl p-4">
+          <h3 className="text-sm font-bold text-white/80 mb-3">Statistics</h3>
+          <p className="text-white font-bold text-lg mb-2">
+            Games played: <span className="text-blue-400">{stats.gamesPlayed}</span>
+          </p>
           {Object.keys(stats.winsByColor).length > 0 && (
-            <div className="mt-2 space-y-1">
+            <div className="mt-3 space-y-2">
               {Object.entries(stats.winsByColor).map(([color, wins]) => (
-                <p key={color} className="text-sm text-gray-600 capitalize">
-                  {color}: <strong>{wins as number}</strong> wins
-                </p>
+                <div key={color} className="flex items-center justify-between">
+                  <span className="text-sm text-white/70 capitalize flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color === 'yellow' ? '#EAB308' : color === 'red' ? '#E23A3A' : color === 'green' ? '#16A34A' : color === 'blue' ? '#2563EB' : '#8B5CF6' }} />
+                    {color}
+                  </span>
+                  <span className="text-sm font-bold text-white">{wins as number} wins</span>
+                </div>
               ))}
             </div>
           )}
           <button
             onClick={handleResetStats}
-            className="mt-3 text-sm text-red-500 hover:text-red-700 font-medium"
+            className="mt-4 text-sm text-red-400 hover:text-red-300 font-bold transition-colors"
           >
             Reset Statistics
           </button>
@@ -119,15 +132,14 @@ const Settings: React.FC<SettingsProps> = ({ settings, onChange, onBack }) => {
 };
 
 const ToggleRow: React.FC<{ label: string; checked: boolean; onChange: () => void }> = ({ label, checked, onChange }) => (
-  <div className="flex items-center justify-between bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-    <span className="text-sm font-medium text-gray-700">{label}</span>
+  <div className="settings-card flex items-center justify-between rounded-2xl p-4">
+    <span className="text-sm font-bold text-white/90">{label}</span>
     <button
       onClick={onChange}
-      className={`w-12 h-7 rounded-full transition-all relative ${checked ? 'bg-green-500' : 'bg-gray-300'}`}
+      className={`toggle-track w-14 h-8 rounded-full relative transition-colors ${checked ? 'bg-green-500' : 'bg-white/20'}`}
     >
       <span
-        className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-all ${checked ? 'left-5.5' : 'left-0.5'}`}
-        style={{ left: checked ? '22px' : '2px' }}
+        className={`toggle-thumb absolute top-1 w-6 h-6 rounded-full bg-white shadow-lg ${checked ? 'left-7' : 'left-1'}`}
       />
     </button>
   </div>

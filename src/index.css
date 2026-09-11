@@ -13,7 +13,6 @@ html, body {
   height: 100%;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: #F6F4EF;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -31,8 +30,9 @@ html, body {
   position: relative;
 }
 
-/* Prevent pull-to-refresh and overscroll */
+/* Rich gradient background */
 body {
+  background: radial-gradient(ellipse at top, #1e3a5f 0%, #0f172a 50%, #1e1b4b 100%);
   overscroll-behavior: none;
   touch-action: manipulation;
   position: fixed;
@@ -40,27 +40,164 @@ body {
   height: 100%;
 }
 
+/* Floating glow blobs */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::before {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, #3b82f6 0%, transparent 70%);
+  top: -100px;
+  right: -100px;
+  animation: float 20s ease-in-out infinite;
+}
+
+body::after {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
+  bottom: -150px;
+  left: -150px;
+  animation: float 25s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(30px, -30px); }
+}
+
+/* Vignette overlay */
+.app-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.3) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Game screen layout - CRITICAL: no scroll, dice always visible */
+#screen-game {
+  height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+  position: relative;
+  z-index: 2;
+}
+
+/* Board wrapper - centers and scales board */
+.board-wrap {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+}
+
+.board-wrap svg {
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 1/1;
+  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4));
+}
+
+/* Dice dock - always visible, above board */
+.dock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 5;
+  position: relative;
+}
+
+/* Dice button */
+.dice {
+  width: 72px;
+  height: 72px;
+  min-width: 56px;
+  min-height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%);
+  border: 2px solid rgba(255,255,255,0.3);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(.34,1.56,.64,1);
+  position: relative;
+  overflow: hidden;
+}
+
+.dice:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.dice:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+}
+
+.dice:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dice rolling animation */
+.dice.rolling {
+  animation: tumble 0.6s cubic-bezier(.3,.8,.4,1);
+}
+
+@keyframes tumble {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(90deg) scale(1.25); }
+  50% { transform: rotate(180deg) scale(0.9); }
+  75% { transform: rotate(270deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Dice glow for 6 */
+.dice.glow-6 {
+  animation: glowPulse 0.6s ease-out;
+}
+
+@keyframes glowPulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7), 0 8px 24px rgba(0,0,0,0.3); }
+  100% { box-shadow: 0 0 30px 15px rgba(255, 215, 0, 0), 0 8px 24px rgba(0,0,0,0.3); }
+}
+
+/* Dice pips with inner shadow */
+.dice svg circle {
+  fill: #1f2937;
+  filter: drop-shadow(inset 0 1px 2px rgba(0,0,0,0.3));
+}
+
+/* Particle effects */
+.particle {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
 /* Safe area support */
 @supports (padding: env(safe-area-inset-top)) {
   .safe-top { padding-top: env(safe-area-inset-top); }
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-}
-
-/* Animations */
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 0.2; }
-}
-
-@keyframes hop {
-  0% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-8px) scale(1.1); }
-  100% { transform: translateY(0) scale(1); }
-}
-
-@keyframes confetti-fall {
-  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
-  100% { transform: translateY(100px) rotate(720deg); opacity: 0; }
 }
 
 /* Reduced motion */
@@ -80,11 +217,11 @@ svg {
 
 /* Button focus styles */
 button:focus-visible {
-  outline: 2px solid #34A8E8;
+  outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
 
-/* Scrollbar hiding for clean UI */
+/* Scrollbar hiding */
 ::-webkit-scrollbar {
   display: none;
 }
@@ -92,4 +229,225 @@ button:focus-visible {
 * {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Screen transitions */
+.screen-enter {
+  animation: screenFadeIn 0.2s ease-out;
+}
+
+@keyframes screenFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Modal backdrop blur */
+.modal-backdrop {
+  backdrop-filter: blur(8px);
+  background: rgba(0,0,0,0.5);
+}
+
+/* Modal spring animation */
+.modal-content {
+  animation: modalSpringIn 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes modalSpringIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Gradient buttons */
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s cubic-bezier(.34,1.56,.64,1);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  border: 1px solid rgba(255,255,255,0.2);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transition: all 0.2s cubic-bezier(.34,1.56,.64,1);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.btn-secondary:active {
+  transform: translateY(0) scale(0.96);
+}
+
+/* Shine sweep on primary buttons */
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+/* Turn banner */
+.turn-banner {
+  background: linear-gradient(135deg, var(--player-color, #3b82f6) 0%, var(--player-color-dark, #2563eb) 100%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  animation: bannerSlideIn 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes bannerSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Progress chips */
+.progress-chip {
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+
+.progress-chip.active {
+  background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 100%);
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(255,255,255,0.3);
+}
+
+/* Settings cards */
+.settings-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+/* Springy toggle */
+.toggle-track {
+  transition: background-color 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+
+.toggle-thumb {
+  transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+
+/* Segmented control */
+.segmented-control {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(8px);
+}
+
+.segment-thumb {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+  transition: transform 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+
+/* Menu screen floating elements */
+.floating-shape {
+  position: absolute;
+  opacity: 0.1;
+  animation: floatShape 15s ease-in-out infinite;
+}
+
+@keyframes floatShape {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(30px, -30px) rotate(120deg); }
+  66% { transform: translate(-20px, 20px) rotate(240deg); }
+}
+
+/* Title shine effect */
+.title-shine {
+  background: linear-gradient(90deg, #ffffff 0%, #e0e7ff 50%, #ffffff 100%);
+  background-size: 200% 100%;
+  animation: shine 3s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Game over confetti */
+.confetti {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  z-index: 9998;
+  animation: confettiFall 3s ease-in forwards;
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* Trophy bounce */
+.trophy-bounce {
+  animation: trophyBounce 0.6s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes trophyBounce {
+  0% { transform: scale(0) rotate(-10deg); }
+  50% { transform: scale(1.2) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Rank cards stagger */
+.rank-card {
+  animation: rankCardSlideIn 0.4s cubic-bezier(.34,1.56,.64,1) backwards;
+}
+
+@keyframes rankCardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
