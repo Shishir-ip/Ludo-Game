@@ -33,16 +33,15 @@ interface GameScreenProps {
   onMenu: () => void;
 }
 
-// Pod anchors for each player - positioned in gutter rows
-// Top gutter: Red (left), Green (right)
-// Bottom gutter: Blue (left), Yellow (right)
-const POD_SLOTS: Record<PlayerColor, { row: 'top' | 'bottom'; side: 'left' | 'right' }> = {
-  red: { row: 'top', side: 'left' },
-  green: { row: 'top', side: 'right' },
-  blue: { row: 'bottom', side: 'left' },
-  yellow: { row: 'bottom', side: 'right' },
-  purple: { row: 'top', side: 'left' }, // 6P: reuse corners
-  orange: { row: 'top', side: 'right' },
+// Pod positions for each player - CSS class suffixes
+// Red = top-left, Green = top-right, Blue = bottom-left, Yellow = bottom-right
+const POD_POSITIONS: Record<PlayerColor, 'tl' | 'tr' | 'bl' | 'br'> = {
+  red: 'tl',
+  green: 'tr',
+  blue: 'bl',
+  yellow: 'br',
+  purple: 'tl', // 6P: reuse corners
+  orange: 'tr',
 };
 
 const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQuit, onMenu }) => {
@@ -55,34 +54,39 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [message, setMessage] = useState<string>('');
   const [showMenu, setShowMenu] = useState(false);
-  const [podSize, setPodSize] = useState(72);
   const animatingRef = useRef(false);
   const stateRef = useRef(state);
   const boardRef = useRef<HTMLDivElement>(null);
-  const boardZoneRef = useRef<HTMLDivElement>(null);
+  const playfieldRef = useRef<HTMLDivElement>(null);
+  const podRef = useRef<HTMLDivElement>(null);
   stateRef.current = state;
 
   const currentPlayer = getCurrentPlayer(state);
   const speedMult = getSpeedMultiplier(state.settings.animationSpeed);
 
-  // Calculate pod size based on board size
+  // Visibility guard: ensure board is visible
   useEffect(() => {
-    const updateSize = () => {
-      if (boardZoneRef.current) {
-        const rect = boardZoneRef.current.getBoundingClientRect();
-        const boardSize = Math.min(rect.width, rect.height);
-        const pod = Math.min(84, Math.max(56, boardSize * 0.17));
-        setPodSize(pod);
-        document.documentElement.style.setProperty('--pod', `${pod}px`);
+    const checkBoard = () => {
+      const svg = boardRef.current?.querySelector('svg');
+      const screenGame = document.getElementById('screen-game');
+      if (svg && screenGame) {
+        requestAnimationFrame(() => {
+          if (svg.getBoundingClientRect().width < 120) {
+            screenGame.classList.add('layout-fallback');
+            console.error('[ludo] board too small → fallback');
+          } else {
+            screenGame.classList.remove('layout-fallback');
+          }
+        });
       }
     };
 
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    window.addEventListener('orientationchange', updateSize);
+    checkBoard();
+    window.addEventListener('resize', checkBoard);
+    window.addEventListener('orientationchange', checkBoard);
     return () => {
-      window.removeEventListener('resize', updateSize);
-      window.removeEventListener('orientationchange', updateSize);
+      window.removeEventListener('resize', checkBoard);
+      window.removeEventListener('orientationchange', checkBoard);
     };
   }, []);
 
@@ -283,8 +287,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
     };
   }, []);
 
-  const currentPodSlot = POD_SLOTS[currentPlayer.color] || { row: 'top', side: 'left' };
-
   return (
     <div id="screen-game">
       {/* Top bar - compact 48px */}
@@ -322,44 +324,37 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
         </button>
       </div>
 
-      {/* Top gutter row */}
-      <div className="gutter">
-        <div className="pod-slot-l">
-          {currentPodSlot.row === 'top' && currentPodSlot.side === 'left' && (
-            <DicePod player={currentPlayer} state={state} rolling={rolling} onRoll={rollDice} />
-          )}
-        </div>
-        <div className="center">
-          {/* Turn banner */}
-          <div
-            key={currentPlayer.color}
-            className="turn-banner flex items-center gap-2 rounded-full px-4 py-2"
-            style={{
-              '--player-color': COLOR_HEX[currentPlayer.color],
-              '--player-color-dark': COLOR_HEX[currentPlayer.color] + 'cc',
-            } as React.CSSProperties}
-          >
-            <div className="w-5 h-5 rounded-full bg-white/30" />
-            <span className="font-bold text-white text-sm">
-              {currentPlayer.name}'s turn
-            </span>
-            {state.diceValue && (
-              <div className="ml-2 w-6 h-6 rounded bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-                {state.diceValue}
-              </div>
-            )}
+      {/* Playfield: contains gutters + board + floating pod */}
+      <div className="playfield" ref={playfieldRef}>
+        {/* Top gutter */}
+        <div className="gutter">
+          <div />
+          <div className="center">
+            {/* Turn banner */}
+            <div
+              key={currentPlayer.color}
+              className="turn-banner flex items-center gap-2 rounded-full px-4 py-2"
+              style={{
+                '--player-color': COLOR_HEX[currentPlayer.color],
+                '--player-color-dark': COLOR_HEX[currentPlayer.color] + 'cc',
+              } as React.CSSProperties}
+            >
+              <div className="w-5 h-5 rounded-full bg-white/30" />
+              <span className="font-bold text-white text-sm">
+                {currentPlayer.name}'s turn
+              </span>
+              {state.diceValue && (
+                <div className="ml-2 w-6 h-6 rounded bg-white/20 flex items-center justify-center text-xs font-bold text-white">
+                  {state.diceValue}
+                </div>
+              )}
+            </div>
           </div>
+          <div />
         </div>
-        <div className="pod-slot-r">
-          {currentPodSlot.row === 'top' && currentPodSlot.side === 'right' && (
-            <DicePod player={currentPlayer} state={state} rolling={rolling} onRoll={rollDice} />
-          )}
-        </div>
-      </div>
 
-      {/* Board zone */}
-      <div className="board-zone" ref={boardZoneRef}>
-        <div ref={boardRef}>
+        {/* Board zone */}
+        <div className="board-zone" ref={boardRef}>
           <Board
             state={state}
             legalMoves={legalMoves}
@@ -367,44 +362,56 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
             selectedToken={selectedToken}
           />
         </div>
-      </div>
 
-      {/* Bottom gutter row */}
-      <div className="gutter">
-        <div className="pod-slot-l">
-          {currentPodSlot.row === 'bottom' && currentPodSlot.side === 'left' && (
-            <DicePod player={currentPlayer} state={state} rolling={rolling} onRoll={rollDice} />
-          )}
-        </div>
-        <div className="center">
-          {/* Progress chips */}
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            {state.players.map(p => {
-              const homeCount = p.tokens.filter(t => t.finished).length;
-              const isCurrent = p.color === currentPlayer.color;
-              return (
-                <div
-                  key={p.color}
-                  className={`progress-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${isCurrent ? 'active' : ''}`}
-                >
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_HEX[p.color] }} />
-                  <span className="text-white">{homeCount}/4</span>
-                  {p.finished && <span className="text-green-400">✓</span>}
-                </div>
-              );
-            })}
+        {/* Bottom gutter */}
+        <div className="gutter">
+          <div />
+          <div className="center">
+            {/* Progress chips */}
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              {state.players.map(p => {
+                const homeCount = p.tokens.filter(t => t.finished).length;
+                const isCurrent = p.color === currentPlayer.color;
+                return (
+                  <div
+                    key={p.color}
+                    className={`progress-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${isCurrent ? 'active' : ''}`}
+                  >
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_HEX[p.color] }} />
+                    <span className="text-white">{homeCount}/4</span>
+                    {p.finished && <span className="text-green-400">✓</span>}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Hint text */}
+            <p className="text-xs text-white/60 font-medium text-center mt-1">
+              {rolling ? 'Rolling...' :
+               state.diceValue !== null ? (legalMoves.length > 0 ? 'Tap a glowing token' : 'No moves...') :
+               'Tap dice or press Space'}
+            </p>
           </div>
-          {/* Hint text */}
-          <p className="text-xs text-white/60 font-medium text-center mt-1">
-            {rolling ? 'Rolling...' :
-             state.diceValue !== null ? (legalMoves.length > 0 ? 'Tap a glowing token' : 'No moves...') :
-             'Tap dice or press Space'}
-          </p>
+          <div />
         </div>
-        <div className="pod-slot-r">
-          {currentPodSlot.row === 'bottom' && currentPodSlot.side === 'right' && (
-            <DicePod player={currentPlayer} state={state} rolling={rolling} onRoll={rollDice} />
-          )}
+
+        {/* Floating dice pod - positioned via CSS classes */}
+        <div
+          ref={podRef}
+          className={`dice-pod pos-${POD_POSITIONS[currentPlayer.color]}`}
+        >
+          <div className="dice-pod-container">
+            <div
+              className="dice-pod-ring"
+              style={{ borderColor: COLOR_HEX[currentPlayer.color] }}
+            />
+            <Dice
+              value={state.diceValue}
+              onRoll={rollDice}
+              disabled={state.diceValue !== null || rolling}
+              rolling={rolling}
+            />
+            <div className="dice-pod-name">{currentPlayer.name}</div>
+          </div>
         </div>
       </div>
 
@@ -478,29 +485,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
   );
 };
 
-// Dice Pod component - compact rounded square with color ring
-const DicePod: React.FC<{
-  player: { color: PlayerColor; name: string };
-  state: GameState;
-  rolling: boolean;
-  onRoll: () => void;
-}> = ({ player, state, rolling, onRoll }) => {
-  return (
-    <div className="dice-pod-container">
-      <div
-        className="dice-pod-ring"
-        style={{ borderColor: COLOR_HEX[player.color] }}
-      />
-      <Dice
-        value={state.diceValue}
-        onRoll={onRoll}
-        disabled={state.diceValue !== null || rolling}
-        rolling={rolling}
-      />
-      <div className="dice-pod-name">{player.name}</div>
-    </div>
-  );
-};
+
 
 // Helper to get base position for animation
 function getBasePosition(color: PlayerColor, tokenIndex: number): { x: number; y: number } {
