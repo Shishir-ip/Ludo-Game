@@ -223,12 +223,14 @@ body::after {
   z-index: 2;
 }
 
-/* Board wrapper - centers and scales board */
+/* Board wrapper - centers and scales board with ring margin for dice pod */
 .board-wrap {
   min-height: 0;
   display: grid;
   place-items: center;
-  padding: 8px;
+  /* Ring margin: reserves space around board for dice pod */
+  padding: clamp(56px, 11vw, 88px);
+  position: relative;
 }
 
 .board-wrap svg {
@@ -236,6 +238,13 @@ body::after {
   max-width: 100%;
   aspect-ratio: 1/1;
   filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4));
+}
+
+/* On very short viewports, compress ring to minimum */
+@media (max-height: 600px) {
+  .board-wrap {
+    padding: 56px;
+  }
 }
 
 /* Dice dock - always visible, above board */

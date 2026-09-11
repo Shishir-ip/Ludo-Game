@@ -21,7 +21,7 @@ import Board, { cellCenter } from './Board';
 import Dice from './Dice';
 import { saveGameState, clearGameState, recordWin } from '../services/storage';
 import { sfx, haptic, setMuted } from '../services/audio';
-import { hopPath, burst, screenShake, getSpeedMultiplier, prefersReducedMotion } from '../render/animations';
+import { hopPath, burst, screenShake, getSpeedMultiplier, prefersReducedMotion, returnToBase } from '../render/animations';
 
 interface GameScreenProps {
   initialState: GameState;
@@ -30,14 +30,16 @@ interface GameScreenProps {
   onMenu: () => void;
 }
 
-// Dice pod anchor positions (% of board)
+// Dice pod anchor positions - positioned in the ring gutter OUTSIDE the board
+// These are percentage positions relative to the board-wrap container
+// The board itself is centered with a ring margin, so pod lives in that margin
 const POD_ANCHORS: Record<PlayerColor, { left: string; top: string; translate: string }> = {
-  red: { left: '4%', top: '4%', translate: '0, 0' },
-  green: { left: '96%', top: '4%', translate: '-100%, 0' },
-  yellow: { left: '96%', top: '96%', translate: '-100%, -100%' },
-  blue: { left: '4%', top: '96%', translate: '0, -100%' },
-  purple: { left: '4%', top: '4%', translate: '0, 0' },
-  orange: { left: '96%', top: '4%', translate: '-100%, 0' },
+  red: { left: '2%', top: '2%', translate: '0, 0' },         // top-left
+  green: { left: '98%', top: '2%', translate: '-100%, 0' },  // top-right
+  yellow: { left: '98%', top: '98%', translate: '-100%, -100%' }, // bottom-right
+  blue: { left: '2%', top: '98%', translate: '0, -100%' },   // bottom-left
+  purple: { left: '2%', top: '2%', translate: '0, 0' },      // 6P: top-left
+  orange: { left: '98%', top: '2%', translate: '-100%, 0' }, // 6P: top-right
 };
 
 const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQuit, onMenu }) => {
@@ -100,7 +102,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
       }
     }
 
-    // Sound effects
+    // Handle captures: return victims to base with proper reset
     if (hasCapture) {
       sfx.capture();
       haptic([50, 30, 50]);
@@ -110,6 +112,28 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
       if (tokenEl) {
         const rect = tokenEl.getBoundingClientRect();
         burst(rect.left + rect.width / 2, rect.top + rect.height / 2, COLOR_HEX[currentPlayer.color], 14);
+      }
+      
+      // Return captured tokens to their base slots
+      const capturedTokenIds = move.effects
+        .filter(e => e.type === 'capture' && e.capturedTokens)
+        .flatMap(e => e.capturedTokens || []);
+      
+      for (const capturedId of capturedTokenIds) {
+        const capturedToken = currentState.players
+          .flatMap(p => p.tokens)
+          .find(t => t.id === capturedId);
+        
+        if (capturedToken) {
+          const capturedEl = document.querySelector(`[data-token-id="${capturedId}"]`) as SVGElement | null;
+          if (capturedEl) {
+            // Get the base slot position for this token
+            const baseSlotPos = getBasePosition(capturedToken.color, capturedToken.index);
+            // Return to base with hard reset and pop-in
+            await returnToBase(capturedEl, baseSlotPos, speedMult);
+            sfx.baseExit(); // Play pop sound
+          }
+        }
       }
     } else if (hasHome) {
       sfx.home();
@@ -127,6 +151,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
     setSelectedToken(null);
     animatingRef.current = false;
     saveGameState(newState);
+    
+    // Dev regression guard: verify base tokens are visible after turn
+    setTimeout(() => {
+      verifyBaseTokensVisible(newState);
+    }, 100);
   };
 
   // Calculate legal moves when dice is rolled
@@ -208,6 +237,58 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [rollDice, state.diceValue, rolling]);
+
+  // Dev helper: window.__ludo.teleport(tokenId, cellIndex) for QA testing
+  useEffect(() => {
+    (window as any).__ludo = {
+      teleport: (tokenId: string, cellIndex: number) => {
+        const newState = { ...stateRef.current };
+        newState.layout = getBoardLayout(newState.mode);
+        for (const player of newState.players) {
+          const token = player.tokens.find(t => t.id === tokenId);
+          if (token) {
+            token.pathPosition = cellIndex;
+            break;
+          }
+        }
+        setState(newState);
+        saveGameState(newState);
+        console.log(`[ludo] Teleported ${tokenId} to cell ${cellIndex}`);
+      },
+      getState: () => stateRef.current,
+    };
+  }, []);
+
+  // Dev assert: check dice pod doesn't overlap board
+  useEffect(() => {
+    const checkOverlap = () => {
+      const pod = document.querySelector('.dice-pod');
+      const board = document.querySelector('.board-wrap svg');
+      if (pod && board) {
+        const podRect = pod.getBoundingClientRect();
+        const boardRect = board.getBoundingClientRect();
+        const intersects = !(
+          podRect.right < boardRect.left ||
+          boardRect.right < podRect.left ||
+          podRect.bottom < boardRect.top ||
+          boardRect.bottom < podRect.top
+        );
+        if (intersects) {
+          console.warn('[ludo] Dice pod overlaps board!', { podRect, boardRect });
+        }
+      }
+    };
+    
+    // Check on mount and resize
+    setTimeout(checkOverlap, 500);
+    window.addEventListener('resize', checkOverlap);
+    window.addEventListener('orientationchange', checkOverlap);
+    
+    return () => {
+      window.removeEventListener('resize', checkOverlap);
+      window.removeEventListener('orientationchange', checkOverlap);
+    };
+  }, [currentPlayer.color]);
 
   // Dice pod position
   const podAnchor = POD_ANCHORS[currentPlayer.color] || POD_ANCHORS.red;
@@ -406,6 +487,22 @@ function getBasePosition(color: PlayerColor, tokenIndex: number): { x: number; y
     { dx: CELL * 0.55, dy: CELL * 0.55 },
   ];
   return { x: cx + offsets[tokenIndex].dx, y: cy + offsets[tokenIndex].dy };
+}
+
+// Dev regression guard: verify base tokens are visible
+function verifyBaseTokensVisible(state: GameState): void {
+  for (const player of state.players) {
+    const baseTokens = player.tokens.filter(t => t.pathPosition === -1 && !t.finished);
+    for (const token of baseTokens) {
+      const el = document.querySelector(`[data-token-id="${token.id}"]`) as SVGElement | null;
+      if (el) {
+        const opacity = parseFloat(el.style.opacity || '1');
+        if (opacity < 0.5) {
+          console.error(`[ludo] Base token ${token.id} is invisible! Opacity: ${opacity}`);
+        }
+      }
+    }
+  }
 }
 
 export default GameScreen;

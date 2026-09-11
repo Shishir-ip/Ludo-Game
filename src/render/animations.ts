@@ -98,6 +98,7 @@ export async function popIn(
 
 /**
  * Capture animation: victim spins and shrinks.
+ * Uses fill: 'none' so it doesn't leave element in final state.
  */
 export async function captureVictim(
   tokenEl: SVGElement,
@@ -112,6 +113,40 @@ export async function captureVictim(
   ], {
     duration: dur,
     easing: 'cubic-bezier(.4,0,.2,1)',
+    fill: 'none'  // Don't leave in final state
+  });
+
+  await anim.finished;
+}
+
+/**
+ * Return captured token to base slot with hard reset.
+ * Cancels all lingering animations, resets opacity/transform, then plays pop-in.
+ */
+export async function returnToBase(
+  tokenEl: SVGElement,
+  slotCenter: { x: number; y: number },
+  speedMult: number = 1.0
+): Promise<void> {
+  // Cancel all lingering animations (especially capture fill:forwards)
+  tokenEl.getAnimations().forEach(a => a.cancel());
+  
+  // Hard reset: remove any classes, reset opacity and transform
+  tokenEl.classList.remove('captured', 'dying');
+  tokenEl.style.opacity = '1';
+  tokenEl.setAttribute('transform', `translate(${slotCenter.x}, ${slotCenter.y})`);
+  
+  if (prefersReducedMotion()) return;
+
+  // Play pop-in animation
+  const dur = 260 * speedMult;
+  const anim = tokenEl.animate([
+    { transform: `translate(${slotCenter.x}px, ${slotCenter.y}px) scale(0)`, opacity: 0 },
+    { transform: `translate(${slotCenter.x}px, ${slotCenter.y}px) scale(1.12)`, opacity: 1, offset: 0.7 },
+    { transform: `translate(${slotCenter.x}px, ${slotCenter.y}px) scale(1)`, opacity: 1 }
+  ], {
+    duration: dur,
+    easing: 'cubic-bezier(.34,1.56,.64,1)',
     fill: 'forwards'
   });
 
