@@ -57,7 +57,7 @@ const GameOver: React.FC<GameOverProps> = ({ winner, rankings, playerNames, onRe
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden screen-enter">
+    <div className="screen flex flex-col items-center justify-center relative overflow-hidden screen-enter">
       {/* Trophy */}
       <div className="trophy-bounce mb-6">
         <TrophyIcon />

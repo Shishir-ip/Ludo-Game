@@ -36,7 +36,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onChange, onBack }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-6 screen-enter overflow-y-auto" style={{ maxHeight: '100dvh' }}>
+    <div className="screen screen-enter">
       <button
         onClick={onBack}
         className="self-start mb-4 text-white/70 hover:text-white flex items-center gap-2 text-base font-medium transition-colors"

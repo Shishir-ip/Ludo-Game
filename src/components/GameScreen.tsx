@@ -1,7 +1,7 @@
 /**
  * Main game screen - mobile-safe layout with grid system.
- * Dice dock always visible, board scales via viewBox, no scrolling.
- * Integrates animation system for hop-by-hop token movement.
+ * Dice pod moves to current player's base corner.
+ * Per-step hopping sounds during token movement.
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
@@ -20,7 +20,7 @@ import { getBoardLayout } from '../core/paths';
 import Board, { cellCenter } from './Board';
 import Dice from './Dice';
 import { saveGameState, clearGameState, recordWin } from '../services/storage';
-import { playHop, playCapture, playHome, playWin, haptic, setMuted } from '../services/audio';
+import { sfx, haptic, setMuted } from '../services/audio';
 import { hopPath, burst, screenShake, getSpeedMultiplier, prefersReducedMotion } from '../render/animations';
 
 interface GameScreenProps {
@@ -29,6 +29,16 @@ interface GameScreenProps {
   onQuit: () => void;
   onMenu: () => void;
 }
+
+// Dice pod anchor positions (% of board)
+const POD_ANCHORS: Record<PlayerColor, { left: string; top: string; translate: string }> = {
+  red: { left: '4%', top: '4%', translate: '0, 0' },
+  green: { left: '96%', top: '4%', translate: '-100%, 0' },
+  yellow: { left: '96%', top: '96%', translate: '-100%, -100%' },
+  blue: { left: '4%', top: '96%', translate: '0, -100%' },
+  purple: { left: '4%', top: '4%', translate: '0, 0' },
+  orange: { left: '96%', top: '4%', translate: '-100%, 0' },
+};
 
 const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQuit, onMenu }) => {
   const [state, setState] = useState<GameState>(() => ({
@@ -48,7 +58,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
   const currentPlayer = getCurrentPlayer(state);
   const speedMult = getSpeedMultiplier(state.settings.animationSpeed);
 
-  // Execute a move with animation
+  // Execute a move with animation and per-step sounds
   const executeMoveRef = useRef<(move: LegalMove) => void>();
   executeMoveRef.current = async (move: LegalMove) => {
     if (animatingRef.current) return;
@@ -62,7 +72,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
     const tokenEl = document.querySelector(`[data-token-id="${move.tokenId}"]`) as SVGElement | null;
 
     if (tokenEl && !prefersReducedMotion()) {
-      // Calculate path points for animation
       const token = currentState.players
         .flatMap(p => p.tokens)
         .find(t => t.id === move.tokenId);
@@ -70,51 +79,45 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
       if (token) {
         const points: { x: number; y: number; cellSize?: number }[] = [];
 
-        // From position
         if (move.from === -1) {
-          // From base - get base position
           const basePos = getBasePosition(token.color, token.index);
           points.push({ ...basePos, cellSize: 40 });
+          sfx.baseExit();
         } else {
           const fromPos = cellCenter(token.color, move.from, currentState.layout);
           points.push({ ...fromPos, cellSize: 40 });
         }
 
-        // To position
         const toPos = cellCenter(token.color, move.to, currentState.layout);
         points.push({ ...toPos, cellSize: 40 });
 
-        // Animate hop
+        // Animate hop with per-step sounds
         if (points.length >= 2) {
-          await hopPath(tokenEl, points, 150, speedMult);
+          await hopPath(tokenEl, points, 150, speedMult, (stepIndex) => {
+            sfx.step(stepIndex);
+          });
         }
       }
     }
 
     // Sound effects
     if (hasCapture) {
-      playCapture();
+      sfx.capture();
       haptic([50, 30, 50]);
-      // Screen shake
       if (boardRef.current) {
         screenShake(boardRef.current, speedMult);
       }
-      // Particle burst
       if (tokenEl) {
         const rect = tokenEl.getBoundingClientRect();
         burst(rect.left + rect.width / 2, rect.top + rect.height / 2, COLOR_HEX[currentPlayer.color], 14);
       }
     } else if (hasHome) {
-      playHome();
+      sfx.home();
       haptic([30, 50, 30, 50, 30]);
-      // Confetti burst
       if (tokenEl) {
         const rect = tokenEl.getBoundingClientRect();
         burst(rect.left + rect.width / 2, rect.top + rect.height / 2, COLOR_HEX[currentPlayer.color], 20);
       }
-    } else {
-      playHop();
-      haptic(30);
     }
 
     // Apply move after animation
@@ -160,7 +163,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
   useEffect(() => {
     if (isGameOver(state)) {
       if (state.winner) {
-        playWin();
+        sfx.win();
         recordWin(state.winner);
       }
       clearGameState();
@@ -173,6 +176,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
     if (rolling || state.diceValue !== null) return;
     setRolling(true);
     setMessage('');
+    sfx.roll();
 
     setTimeout(() => {
       const value = Math.floor(Math.random() * 6) + 1;
@@ -205,6 +209,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
     return () => window.removeEventListener('keydown', handler);
   }, [rollDice, state.diceValue, rolling]);
 
+  // Dice pod position
+  const podAnchor = POD_ANCHORS[currentPlayer.color] || POD_ANCHORS.red;
+
   return (
     <div id="screen-game" className="relative z-10">
       {/* Row 1: Top bar */}
@@ -217,6 +224,26 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
             <path d="M3 12h18M3 6h18M3 18h18" />
           </svg>
         </button>
+
+        {/* Turn banner */}
+        <div
+          key={currentPlayer.color}
+          className="turn-banner flex items-center gap-2 rounded-full px-4 py-2"
+          style={{
+            '--player-color': COLOR_HEX[currentPlayer.color],
+            '--player-color-dark': COLOR_HEX[currentPlayer.color] + 'cc',
+          } as React.CSSProperties}
+        >
+          <div className="w-5 h-5 rounded-full bg-white/30" />
+          <span className="font-bold text-white text-sm">
+            {currentPlayer.name}'s turn
+          </span>
+          {state.diceValue && (
+            <div className="ml-2 w-6 h-6 rounded bg-white/20 flex items-center justify-center text-xs font-bold text-white">
+              {state.diceValue}
+            </div>
+          )}
+        </div>
 
         {/* Sound toggle */}
         <button
@@ -241,90 +268,76 @@ const GameScreen: React.FC<GameScreenProps> = ({ initialState, onGameOver, onQui
             </svg>
           )}
         </button>
-
-        {/* Turn banner */}
-        <div
-          key={currentPlayer.color}
-          className="turn-banner flex items-center gap-2 rounded-full px-4 py-2"
-          style={{
-            '--player-color': COLOR_HEX[currentPlayer.color],
-            '--player-color-dark': COLOR_HEX[currentPlayer.color] + 'cc',
-          } as React.CSSProperties}
-        >
-          <div className="w-5 h-5 rounded-full bg-white/30" />
-          <span className="font-bold text-white text-sm">
-            {currentPlayer.name}'s turn
-          </span>
-          {state.diceValue && (
-            <div className="ml-2 w-6 h-6 rounded bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-              {state.diceValue}
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Row 2: Board wrapper */}
-      <div className="board-wrap" ref={boardRef}>
+      {/* Row 2: Board wrapper with dice pod */}
+      <div className="board-wrap relative" ref={boardRef}>
         <Board
           state={state}
           legalMoves={legalMoves}
           onTokenClick={handleTokenClick}
           selectedToken={selectedToken}
         />
+
+        {/* Dice pod - floating dice that moves to current player */}
+        <div
+          className="dice-pod"
+          style={{
+            left: podAnchor.left,
+            top: podAnchor.top,
+            transform: `translate(${podAnchor.translate})`,
+          }}
+        >
+          <div className="dice-pod-container">
+            <div
+              className="dice-pod-ring"
+              style={{ borderColor: COLOR_HEX[currentPlayer.color] }}
+            />
+            <Dice
+              value={state.diceValue}
+              onRoll={rollDice}
+              disabled={state.diceValue !== null || rolling}
+              rolling={rolling}
+            />
+          </div>
+          <div className="dice-pod-name">{currentPlayer.name}</div>
+        </div>
       </div>
 
-      {/* Row 3: Dice dock - always visible */}
-      <div className="dock">
-        {/* Progress chips */}
-        <div className="flex items-center justify-center gap-2 flex-wrap">
-          {state.players.map(p => {
-            const homeCount = p.tokens.filter(t => t.finished).length;
-            const isCurrent = p.color === currentPlayer.color;
-            return (
-              <div
-                key={p.color}
-                className={`progress-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${isCurrent ? 'active' : ''}`}
-              >
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_HEX[p.color] }} />
-                <span className="text-white">{homeCount}/4</span>
-                {p.finished && <span className="text-green-400">✓</span>}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Dice */}
-        <Dice
-          value={state.diceValue}
-          onRoll={rollDice}
-          disabled={state.diceValue !== null || rolling}
-          rolling={rolling}
-        />
-
-        {/* Status text */}
-        <p className="text-xs text-white/60 font-medium text-center">
-          {rolling ? 'Rolling...' :
-           state.diceValue !== null ? (legalMoves.length > 0 ? 'Tap a glowing token' : 'No moves...') :
-           'Tap dice or press Space'}
-        </p>
-
-        {/* Consecutive sixes indicator */}
-        {state.consecutiveSixes > 0 && (
-          <div className="flex items-center gap-1 bg-yellow-500/20 backdrop-blur-sm border border-yellow-500/30 px-3 py-1 rounded-full">
-            {Array.from({ length: state.consecutiveSixes }).map((_, i) => (
-              <span key={i} className="text-yellow-400 font-bold text-sm">6</span>
-            ))}
-            {state.settings.threeSixesAbort && state.consecutiveSixes === 2 && (
-              <span className="text-xs text-yellow-300 ml-1">⚠️ One more = forfeit!</span>
-            )}
-          </div>
-        )}
+      {/* Row 3: Progress chips */}
+      <div className="flex items-center justify-center gap-2 px-4 py-3 flex-wrap" style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom))' }}>
+        {state.players.map(p => {
+          const homeCount = p.tokens.filter(t => t.finished).length;
+          const isCurrent = p.color === currentPlayer.color;
+          return (
+            <div
+              key={p.color}
+              className={`progress-chip flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${isCurrent ? 'active' : ''}`}
+            >
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLOR_HEX[p.color] }} />
+              <span className="text-white">{homeCount}/4</span>
+              {p.finished && <span className="text-green-400">✓</span>}
+            </div>
+          );
+        })}
       </div>
 
       {/* Message toast */}
       {message && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-bold shadow-xl z-20 animate-pulse">
           {message}
+        </div>
+      )}
+
+      {/* Consecutive sixes indicator */}
+      {state.consecutiveSixes > 0 && (
+        <div className="absolute top-20 right-4 flex items-center gap-1 bg-yellow-500/20 backdrop-blur-sm border border-yellow-500/30 px-3 py-1 rounded-full z-20">
+          {Array.from({ length: state.consecutiveSixes }).map((_, i) => (
+            <span key={i} className="text-yellow-400 font-bold text-sm">6</span>
+          ))}
+          {state.settings.threeSixesAbort && state.consecutiveSixes === 2 && (
+            <span className="text-xs text-yellow-300 ml-1">⚠️</span>
+          )}
         </div>
       )}
 
